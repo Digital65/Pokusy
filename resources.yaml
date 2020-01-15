@@ -22,95 +22,7 @@ items:
     #value: rondinif/openshift-kafka
     value: jhusak/apache-kafka
   objects:
-
-
-## PERSISTENT VOLUMES
-#  - apiVersion: v1
-#    kind: PersistentVolume
-#    metadata:
-#      name: pv-apache-kafka
-#      labels: 
-#        app: apache-kafka
-#        StorageType: ENDURANCE
-#    spec:
-#      capacity:
-#        storage: 500M
-#      accessModes:
-#        - ReadWriteMany
-#      nfs:
-#        server: fsf-wdc0401b-fz.service.softlayer.com
-#        path: /IBM02SEV1956130_54/data01
-#      persistentVolumeReclaimPolicy: Retain
-#      storageClassName: default
-#      
-#  - apiVersion: v1
-#    kind: PersistentVolume
-#    metadata:
-#      name: pv-apache-zookeeper
-#      labels: 
-#        app: apache-zookeeper
-#        StorageType: ENDURANCE
-#    spec:
-#      capacity:
-#        storage: 500M
-#      accessModes:
-#        - ReadWriteMany
-#      nfs:
-#        server: fsf-wdc0401b-fz.service.softlayer.com
-#        path: /IBM02SEV1956130_54/data01
-#      persistentVolumeReclaimPolicy: Retain
-#      storageClassName: default
-#     
- ## PERSISTENT VOLUME CLAIMS 
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      annotations:
-        openshift.io/generated-by: OpenShiftNewApp
-      creationTimestamp: null
-      labels:
-        app: apache-kafka
-      name: apache-kafka
-    spec:
-      accessModes:
-        - ReadWriteMany
-      resources:
-        requests:
-          storage: 500M
-#      storageClassName: default
-      storageClassName: ibmc-file-bronze
-      selector: 
-        matchLabels:
-          APP: apache-kafka
-    status:
-      phase: Pending
-  
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      annotations:
-        openshift.io/generated-by: OpenShiftNewApp
-      creationTimestamp: null
-      labels:
-        app: apache-kafka
-        StorageType: ENDURANCE
-      name: apache-zookeeper
-    spec:
-      accessModes:
-        - ReadWriteMany
-      resources:
-        requests:
-          storage: 500M
-      selector: 
-        matchLabels:
-          APP: apache-zookeeper
-          StorageType: ENDURANCE
-#      storageClassName: default
-      storageClassName: ibmc-file-bronze
-    status:
-      phase: Pending
-
-
+   
 ## DEPLOYMENT CONFIG
   - apiVersion: v1
     kind: DeploymentConfig
@@ -146,6 +58,23 @@ items:
               name: kafka-logs
             ports:
             - containerPort: 9092
+            livenessProbe:
+              exec:
+                command:
+                  - sh
+                  - '-c'
+                  - '/opt/kafka/kafka-liveness-chk.sh'
+              failureThreshold: 3
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                    - sh
+                    - '-c'
+                    - '/opt/kafka/bin/kafka-server-stop.sh'
           - name: apache-zookeeper
             image: ${IMAGE}
             command:
@@ -157,14 +86,18 @@ items:
               name: zookeeper
             ports:
             - containerPort: 2181
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                    - sh
+                    - '-c'
+                    - '/opt/kafka/bin/zookeeper-server-stop.sh'
           volumes:
           - name: zookeeper
-#            emptyDir: {}
             persistentVolumeClaim:
               claimName: apache-zookeeper
-#              claimName: apache-kafka
           - name: kafka-logs
-#            emptyDir: {}
             persistentVolumeClaim:
               claimName: apache-kafka
   
